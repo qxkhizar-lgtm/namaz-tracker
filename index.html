@@ -1,0 +1,729 @@
+<!DOCTYPE html>
+<html lang="ur-PK">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#0B0F1A">
+<title>Namaz Tracker</title>
+<link rel="manifest" href="manifest.json">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Amiri:wght@400;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg-deep:#0a0e1a;
+    --bg-deep2:#0e1424;
+    --panel: rgba(24,34,56,0.55);
+    --panel-solid:#141c31;
+    --border: rgba(212,175,55,0.16);
+    --border-strong: rgba(212,175,55,0.32);
+    --gold:#d4af37;
+    --gold-soft:#c9a85c;
+    --green:#2f8f6f;
+    --green-bright:#3fbf93;
+    --ivory:#ece6d6;
+    --muted:#8b96ad;
+    --danger:#c1554a;
+    --radius:18px;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color: transparent;}
+  html,body{margin:0;padding:0;height:100%;}
+  body{
+    font-family:'Inter',sans-serif;
+    color:var(--ivory);
+    background:
+      radial-gradient(1px 1px at 20% 15%, rgba(255,255,255,0.5) 0, transparent 50%),
+      radial-gradient(1px 1px at 70% 8%, rgba(255,255,255,0.35) 0, transparent 50%),
+      radial-gradient(1.5px 1.5px at 85% 25%, rgba(255,255,255,0.4) 0, transparent 50%),
+      radial-gradient(1px 1px at 40% 35%, rgba(255,255,255,0.3) 0, transparent 50%),
+      radial-gradient(1px 1px at 10% 55%, rgba(255,255,255,0.25) 0, transparent 50%),
+      linear-gradient(180deg, var(--bg-deep) 0%, var(--bg-deep2) 60%, #0c1220 100%);
+    min-height:100%;
+    -webkit-font-smoothing:antialiased;
+  }
+  .shell{
+    max-width:480px;
+    margin:0 auto;
+    min-height:100vh;
+    padding:env(safe-area-inset-top) 16px calc(84px + env(safe-area-inset-bottom)) 16px;
+    position:relative;
+  }
+  h1,h2,h3{font-family:'Amiri',serif; font-weight:700; margin:0;}
+  .topbar{
+    display:flex; align-items:center; justify-content:space-between;
+    padding:22px 2px 14px 2px;
+  }
+  .brand{display:flex; flex-direction:column; gap:2px;}
+  .brand .kicker{font-size:11px; letter-spacing:.14em; text-transform:uppercase; color:var(--gold-soft);}
+  .brand h1{font-size:26px; color:var(--ivory);}
+  .gear{
+    width:38px;height:38px;border-radius:50%;
+    background:var(--panel); border:1px solid var(--border);
+    display:flex;align-items:center;justify-content:center; cursor:pointer;
+    color:var(--gold-soft); font-size:18px;
+  }
+  .card{
+    background:var(--panel);
+    border:1px solid var(--border);
+    border-radius:var(--radius);
+    padding:18px;
+    margin-bottom:14px;
+    backdrop-filter: blur(6px);
+  }
+  .muted{color:var(--muted); font-size:13px;}
+  .age-line{font-size:15px; color:var(--ivory); margin-top:4px;}
+  .age-line b{color:var(--gold);}
+
+  /* Tasbih beads row (signature element) */
+  .beads{display:flex; justify-content:space-between; align-items:center; margin:6px 0 4px 0; padding:0 4px;}
+  .bead-wrap{display:flex; flex-direction:column; align-items:center; gap:8px; flex:1;}
+  .bead{
+    width:34px;height:34px;border-radius:50%;
+    border:2px solid var(--border-strong);
+    background:radial-gradient(circle at 35% 30%, #1c2540, #10162a);
+    transition:all .25s ease;
+    position:relative;
+  }
+  .bead.done{
+    background:radial-gradient(circle at 35% 30%, #f3d879, var(--gold));
+    border-color:var(--gold);
+    box-shadow:0 0 14px rgba(212,175,55,0.55);
+  }
+  .bead-label{font-size:10.5px; color:var(--muted); letter-spacing:.03em;}
+  .bead-thread{
+    position:absolute; top:17px; left:0; right:0; height:1px;
+    background:linear-gradient(90deg, transparent, var(--border-strong) 15%, var(--border-strong) 85%, transparent);
+    z-index:0;
+  }
+  .beads-row{position:relative;}
+
+  .prayer-row{
+    display:flex; align-items:center; gap:12px;
+    padding:12px 4px; border-bottom:1px solid var(--border);
+  }
+  .prayer-row:last-child{border-bottom:none;}
+  .toggle-circle{
+    width:30px;height:30px;border-radius:50%;
+    border:2px solid var(--border-strong);
+    background:transparent; flex-shrink:0; cursor:pointer;
+    display:flex;align-items:center;justify-content:center;
+    color:transparent; font-size:15px; transition:all .18s ease;
+  }
+  .toggle-circle.on{
+    background:var(--green-bright); border-color:var(--green-bright); color:#08130f;
+  }
+  .prayer-name{flex:1; font-size:16px; font-weight:600;}
+  .prayer-name small{display:block; font-weight:400; color:var(--muted); font-size:11.5px; margin-top:1px;}
+  .qaza-input-wrap{display:flex; flex-direction:column; align-items:flex-end; gap:2px;}
+  .qaza-input-wrap label{font-size:9.5px; color:var(--muted); text-transform:uppercase; letter-spacing:.05em;}
+  .qaza-input{
+    width:56px; text-align:center; padding:7px 4px;
+    border-radius:10px; border:1px solid var(--border-strong);
+    background:#0d1425; color:var(--ivory); font-size:15px; font-family:'Inter';
+  }
+  .qaza-input:focus{outline:1px solid var(--gold); border-color:var(--gold);}
+
+  .btn{
+    display:block; width:100%; padding:14px; border-radius:14px; border:none;
+    font-family:'Inter'; font-weight:600; font-size:15px; cursor:pointer;
+    background:linear-gradient(180deg, var(--gold), var(--gold-soft));
+    color:#1a1405; margin-top:6px;
+  }
+  .btn:active{transform:scale(0.98);}
+  .btn.secondary{
+    background:transparent; border:1px solid var(--border-strong); color:var(--ivory);
+  }
+  .btn.danger{background:var(--danger); color:#fff;}
+
+  .save-note{text-align:center; font-size:12.5px; color:var(--green-bright); margin-top:8px; min-height:16px;}
+
+  /* Qaza balance cards */
+  .qaza-grid{display:grid; grid-template-columns:1fr 1fr; gap:10px;}
+  .qaza-tile{
+    background:var(--panel); border:1px solid var(--border); border-radius:14px; padding:14px;
+    text-align:center;
+  }
+  .qaza-tile .num{font-family:'Amiri',serif; font-size:30px; color:var(--gold); font-weight:700;}
+  .qaza-tile .lbl{font-size:12px; color:var(--muted); margin-top:2px;}
+  .qaza-total{
+    text-align:center; padding:20px; margin-bottom:16px;
+  }
+  .qaza-total .num{font-family:'Amiri',serif; font-size:46px; color:var(--gold); line-height:1;}
+  .qaza-total .lbl{color:var(--muted); font-size:13px; margin-top:6px;}
+
+  /* Bottom nav */
+  .nav{
+    position:fixed; bottom:0; left:0; right:0;
+    display:flex; justify-content:center;
+    padding:10px 16px calc(10px + env(safe-area-inset-bottom)) 16px;
+    background:linear-gradient(180deg, transparent, rgba(6,9,17,0.85) 25%, #06090f 100%);
+  }
+  .nav-inner{
+    width:100%; max-width:448px;
+    display:flex; background:var(--panel-solid); border:1px solid var(--border);
+    border-radius:18px; overflow:hidden;
+  }
+  .nav-btn{
+    flex:1; padding:11px 4px; text-align:center; background:none; border:none;
+    color:var(--muted); font-family:'Inter'; font-size:11.5px; cursor:pointer;
+    display:flex; flex-direction:column; align-items:center; gap:4px;
+  }
+  .nav-btn .ic{font-size:18px;}
+  .nav-btn.active{color:var(--gold);}
+
+  .hidden{display:none !important;}
+
+  /* Setup screen */
+  .setup-hero{text-align:center; padding:36px 10px 20px 10px;}
+  .setup-hero h1{font-size:30px;}
+  .setup-hero p{color:var(--muted); font-size:14px; margin-top:8px; line-height:1.5;}
+  .field{margin-bottom:16px;}
+  .field label{display:block; font-size:12.5px; color:var(--gold-soft); margin-bottom:6px; letter-spacing:.02em;}
+  .field input{
+    width:100%; padding:13px 14px; border-radius:12px; border:1px solid var(--border-strong);
+    background:#0d1425; color:var(--ivory); font-size:15px; font-family:'Inter';
+  }
+  .field .hint{font-size:11.5px; color:var(--muted); margin-top:5px; line-height:1.4;}
+  .estimate-box{
+    background:rgba(212,175,55,0.08); border:1px solid var(--border-strong); border-radius:14px;
+    padding:14px; margin:10px 0 18px 0; font-size:13.5px; line-height:1.7;
+  }
+  .estimate-box b{color:var(--gold);}
+
+  /* History */
+  .history-day{
+    display:flex; justify-content:space-between; align-items:center;
+    padding:12px 4px; border-bottom:1px solid var(--border);
+  }
+  .history-day:last-child{border-bottom:none;}
+  .history-day .d{font-size:14px; font-weight:600;}
+  .history-day .stats{font-size:12px; color:var(--muted); margin-top:2px;}
+  .history-day .badge{
+    background:rgba(63,191,147,0.14); color:var(--green-bright); border-radius:20px;
+    padding:5px 10px; font-size:12px; font-weight:600;
+  }
+  .date-picker-row{display:flex; gap:10px; margin-bottom:14px;}
+  .date-picker-row input{flex:1;}
+
+  .toast{
+    position:fixed; top:14px; left:50%; transform:translateX(-50%);
+    background:#141c31; border:1px solid var(--border-strong); color:var(--ivory);
+    padding:10px 18px; border-radius:30px; font-size:13px; z-index:999;
+    opacity:0; transition:opacity .3s ease; pointer-events:none;
+  }
+  .toast.show{opacity:1;}
+
+  .loading-wrap{display:flex; flex-direction:column; align-items:center; justify-content:center; padding:60px 20px; gap:14px;}
+  .spinner{
+    width:34px;height:34px;border-radius:50%;
+    border:3px solid var(--border); border-top-color:var(--gold);
+    animation:spin 0.9s linear infinite;
+  }
+  @keyframes spin{to{transform:rotate(360deg);}}
+
+  .config-warning{
+    background:rgba(193,85,74,0.12); border:1px solid var(--danger); border-radius:14px;
+    padding:14px; font-size:13px; line-height:1.6; margin-bottom:16px;
+  }
+  .config-warning code{background:#1a1020; padding:2px 6px; border-radius:6px; font-size:11.5px;}
+</style>
+</head>
+<body>
+
+<div class="shell" id="shell">
+  <div class="loading-wrap" id="globalLoader">
+    <div class="spinner"></div>
+    <div class="muted">Loading...</div>
+  </div>
+</div>
+
+<div class="nav hidden" id="bottomNav">
+  <div class="nav-inner">
+    <button class="nav-btn active" data-tab="home"><span class="ic">🕌</span>Aaj</button>
+    <button class="nav-btn" data-tab="qaza"><span class="ic">📿</span>Qaza</button>
+    <button class="nav-btn" data-tab="history"><span class="ic">📅</span>History</button>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* ======================= CONFIG ======================= */
+/* Yahan apna Google Apps Script Web App URL paste karein.
+   Deploy karne ke baad milta hai (README.md mein tareeqa likha hai). */
+const CONFIG = {
+  SCRIPT_URL: "https://docs.google.com/spreadsheets/d/1NKIlbG0hF6RwPKazPv7-TQSM-2hvtb_Hl_JCxF7Xee4/edit?gid=0#gid=0"
+};
+/* ======================================================= */
+
+const PRAYERS = [
+  {key:'Fajar', label:'Fajar', sub:'صبح'},
+  {key:'Zohar', label:'Zohar', sub:'دوپہر'},
+  {key:'Asar', label:'Asar', sub:'سہ پہر'},
+  {key:'Maghrib', label:'Maghrib', sub:'شام'},
+  {key:'Isha', label:'Isha', sub:'رات'}
+];
+
+const shell = document.getElementById('shell');
+const bottomNav = document.getElementById('bottomNav');
+const toastEl = document.getElementById('toast');
+
+let STATE = {
+  profile: null,
+  summary: null,
+  todayRecord: null,
+  activeTab: 'home'
+};
+
+function todayStr(){
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+}
+
+function showToast(msg){
+  toastEl.textContent = msg;
+  toastEl.classList.add('show');
+  setTimeout(()=>toastEl.classList.remove('show'), 1800);
+}
+
+/* ---------------- API layer ---------------- */
+async function apiGet(action, params={}){
+  const usp = new URLSearchParams({action, ...params});
+  const res = await fetch(`${CONFIG.SCRIPT_URL}?${usp.toString()}`);
+  return res.json();
+}
+async function apiPost(action, data){
+  const res = await fetch(CONFIG.SCRIPT_URL, {
+    method:'POST',
+    headers:{'Content-Type':'text/plain;charset=utf-8'},
+    body: JSON.stringify({action, data})
+  });
+  return res.json();
+}
+
+/* ---------------- Age calculation ---------------- */
+function ageFromDOB(dobStr, asOf=new Date()){
+  const dob = new Date(dobStr+'T00:00:00');
+  let years = asOf.getFullYear() - dob.getFullYear();
+  let months = asOf.getMonth() - dob.getMonth();
+  let days = asOf.getDate() - dob.getDate();
+  if (days < 0){
+    months -= 1;
+    const prevMonth = new Date(asOf.getFullYear(), asOf.getMonth(), 0);
+    days += prevMonth.getDate();
+  }
+  if (months < 0){ months += 12; years -= 1; }
+  const decimalYears = (asOf - dob) / (1000*60*60*24*365.25);
+  return {years, months, days, decimalYears};
+}
+
+/* ======================= INIT ======================= */
+async function init(){
+  if (!CONFIG.SCRIPT_URL || CONFIG.SCRIPT_URL.indexOf('PASTE_YOUR') === 0){
+    renderConfigMissing();
+    return;
+  }
+  try{
+    const profile = await apiGet('getProfile');
+    if (!profile.exists){
+      renderSetup();
+    } else {
+      STATE.profile = profile;
+      await loadAppData();
+      renderTab('home');
+      bottomNav.classList.remove('hidden');
+    }
+  } catch(err){
+    renderError(err);
+  }
+}
+
+async function loadAppData(){
+  const [summary, todayRecord] = await Promise.all([
+    apiGet('getSummary'),
+    apiGet('getRecord', {date: todayStr()})
+  ]);
+  STATE.summary = summary;
+  STATE.todayRecord = todayRecord.exists ? todayRecord : null;
+}
+
+function renderConfigMissing(){
+  shell.innerHTML = `
+    <div class="setup-hero">
+      <h1>🕌 Namaz Tracker</h1>
+    </div>
+    <div class="config-warning">
+      <b>Setup abhi baqi hai:</b><br><br>
+      Is app ko Google Sheets se connect karne ke liye <code>index.html</code> file ke andar
+      <code>CONFIG.SCRIPT_URL</code> mein apna Apps Script Web App URL paste karein.<br><br>
+      Poora tareeqa <b>README.md</b> file mein mojood hai.
+    </div>
+  `;
+}
+
+function renderError(err){
+  shell.innerHTML = `
+    <div class="setup-hero">
+      <h1>⚠️ Masla Aa Gaya</h1>
+      <p>${(err && err.message) ? err.message : 'Server se connect nahi ho saka. Internet check karein ya Apps Script URL dobara verify karein.'}</p>
+    </div>
+    <button class="btn secondary" onclick="init()">Dobara Koshish Karein</button>
+  `;
+}
+
+/* ======================= SETUP SCREEN ======================= */
+function renderSetup(prefill){
+  bottomNav.classList.add('hidden');
+  const p = prefill || {};
+  shell.innerHTML = `
+    <div class="setup-hero">
+      <h1>🕌 Namaz Tracker</h1>
+      <p>Apni maloomat darj karein taa keh hum aapki age aur andazan qaza namazon ka hisaab laga sakein.</p>
+    </div>
+    <div class="card">
+      <div class="field">
+        <label>Tareekh-e-Paidaish (DOB)</label>
+        <input type="date" id="in_dob" value="${p.dob||''}">
+      </div>
+      <div class="field">
+        <label>Namaz Farz Honay Ki Umar (Baligh)</label>
+        <input type="number" id="in_balig" value="${p.baligAge||15}" min="9" max="20">
+        <div class="hint">Aam tor par 12 se 15 saal ke darmiyan hoti hai. Agar yaqeen na ho to 15 rehne dein.</div>
+      </div>
+      <div class="field">
+        <label>Andazan Kitne Saal Baqaidgi Se Namaz Parhi Hai</label>
+        <input type="number" step="0.5" id="in_prayed" value="${p.yearsPrayed||0}" min="0">
+        <div class="hint">Ye ek andaza hai — jitne saal aap ne mustaqil (regularly) namaz parhi, wo yahan likhein.</div>
+      </div>
+      <div id="estimateBox"></div>
+      <button class="btn" id="btnSaveSetup">Shuru Karein</button>
+      ${prefill ? '<button class="btn secondary" id="btnCancelSetup">Cancel</button>' : ''}
+    </div>
+  `;
+
+  function updateEstimate(){
+    const dob = document.getElementById('in_dob').value;
+    const balig = parseFloat(document.getElementById('in_balig').value)||15;
+    const prayed = parseFloat(document.getElementById('in_prayed').value)||0;
+    const box = document.getElementById('estimateBox');
+    if (!dob){ box.innerHTML=''; return; }
+    const age = ageFromDOB(dob);
+    const obligatoryYears = Math.max(0, age.decimalYears - balig);
+    const missedYears = Math.max(0, obligatoryYears - prayed);
+    const perPrayer = Math.round(missedYears * 365);
+    box.innerHTML = `
+      <div class="estimate-box">
+        Aapki umar: <b>${age.years} saal, ${age.months} maheenay, ${age.days} din</b><br>
+        Farz namazon ke saal: <b>${obligatoryYears.toFixed(1)} saal</b><br>
+        Andazan qaza saal: <b>${missedYears.toFixed(1)} saal</b><br>
+        Har namaz (Fajar/Zohar/Asar/Maghrib/Isha) ki andazan qaza: <b>${perPrayer}</b> alag alag<br>
+        Total andazan qaza namazain: <b>${perPrayer*5}</b>
+      </div>
+    `;
+  }
+  ['in_dob','in_balig','in_prayed'].forEach(id=>{
+    document.getElementById(id).addEventListener('input', updateEstimate);
+  });
+  updateEstimate();
+
+  document.getElementById('btnSaveSetup').addEventListener('click', async ()=>{
+    const dob = document.getElementById('in_dob').value;
+    if (!dob){ showToast('Pehle DOB darj karein'); return; }
+    const balig = parseFloat(document.getElementById('in_balig').value)||15;
+    const prayed = parseFloat(document.getElementById('in_prayed').value)||0;
+    const age = ageFromDOB(dob);
+    const obligatoryYears = Math.max(0, age.decimalYears - balig);
+    const missedYears = Math.max(0, obligatoryYears - prayed);
+    const perPrayer = Math.round(missedYears * 365);
+    const init = {};
+    PRAYERS.forEach(pr => init[pr.key] = perPrayer);
+
+    const btn = document.getElementById('btnSaveSetup');
+    btn.textContent = 'Save ho raha hai...'; btn.disabled = true;
+    try{
+      await apiPost('saveProfile', {
+        dob, baligAge: balig, yearsPrayed: prayed, init, setupDate: todayStr()
+      });
+      showToast('Profile save ho gayi ✅');
+      await init2();
+    } catch(err){
+      showToast('Save nahi ho saka, dobara koshish karein');
+      btn.textContent = 'Shuru Karein'; btn.disabled = false;
+    }
+  });
+
+  if (prefill){
+    document.getElementById('btnCancelSetup').addEventListener('click', ()=>{
+      renderTab('home');
+      bottomNav.classList.remove('hidden');
+    });
+  }
+}
+
+async function init2(){
+  const profile = await apiGet('getProfile');
+  STATE.profile = profile;
+  await loadAppData();
+  renderTab('home');
+  bottomNav.classList.remove('hidden');
+}
+
+/* ======================= TAB SWITCHING ======================= */
+document.addEventListener('click', (e)=>{
+  const navBtn = e.target.closest('.nav-btn');
+  if (navBtn){
+    renderTab(navBtn.dataset.tab);
+  }
+});
+
+function renderTab(tab){
+  STATE.activeTab = tab;
+  document.querySelectorAll('.nav-btn').forEach(b=>{
+    b.classList.toggle('active', b.dataset.tab === tab);
+  });
+  if (tab === 'home') renderHome();
+  else if (tab === 'qaza') renderQaza();
+  else if (tab === 'history') renderHistory();
+}
+
+/* ======================= HOME TAB ======================= */
+function renderHome(){
+  const age = ageFromDOB(STATE.profile.dob);
+  const rec = STATE.todayRecord;
+  const doneFlags = {};
+  PRAYERS.forEach(p => doneFlags[p.key] = rec ? rec[p.key].prayed : false);
+
+  shell.innerHTML = `
+    <div class="topbar">
+      <div class="brand">
+        <span class="kicker">Aaj</span>
+        <h1>${formatDateHuman(todayStr())}</h1>
+      </div>
+      <div class="gear" id="gearBtn">⚙️</div>
+    </div>
+
+    <div class="card">
+      <div class="muted">Aapki Umar</div>
+      <div class="age-line"><b>${age.years}</b> saal, <b>${age.months}</b> maheenay, <b>${age.days}</b> din</div>
+    </div>
+
+    <div class="card">
+      <div class="beads-row">
+        <div class="bead-thread"></div>
+        <div class="beads">
+          ${PRAYERS.map(p=>`
+            <div class="bead-wrap">
+              <div class="bead ${doneFlags[p.key]?'done':''}"></div>
+              <div class="bead-label">${p.label}</div>
+            </div>
+          `).join('')}
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
+        <h3 style="font-size:17px;">Aaj Ki Namazain</h3>
+        <span class="muted" style="font-size:11.5px;">Parhi / Qaza Ginti</span>
+      </div>
+      <div id="prayerList"></div>
+      <button class="btn" id="btnSaveDay">Aaj Ka Din Save Karein</button>
+      <div class="save-note" id="saveNote"></div>
+    </div>
+  `;
+
+  const list = document.getElementById('prayerList');
+  list.innerHTML = PRAYERS.map(p=>{
+    const prayed = doneFlags[p.key];
+    const qazaVal = rec ? rec[p.key].qaza : 0;
+    return `
+      <div class="prayer-row" data-key="${p.key}">
+        <button class="toggle-circle ${prayed?'on':''}" data-key="${p.key}">${prayed?'✓':''}</button>
+        <div class="prayer-name">${p.label}<small>Aaj ki farz namaz</small></div>
+        <div class="qaza-input-wrap">
+          <label>Qaza Parhi</label>
+          <input type="number" min="0" class="qaza-input" data-key="${p.key}" value="${qazaVal}">
+        </div>
+      </div>
+    `;
+  }).join('');
+
+  list.querySelectorAll('.toggle-circle').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      btn.classList.toggle('on');
+      btn.textContent = btn.classList.contains('on') ? '✓' : '';
+    });
+  });
+
+  document.getElementById('gearBtn').addEventListener('click', ()=>{
+    renderSetup({
+      dob: STATE.profile.dob,
+      baligAge: STATE.profile.baligAge,
+      yearsPrayed: STATE.profile.yearsPrayed
+    });
+  });
+
+  document.getElementById('btnSaveDay').addEventListener('click', saveToday);
+}
+
+async function saveToday(){
+  const btn = document.getElementById('btnSaveDay');
+  const note = document.getElementById('saveNote');
+  btn.disabled = true; btn.textContent = 'Save ho raha hai...';
+  const data = {date: todayStr()};
+  PRAYERS.forEach(p=>{
+    const toggle = document.querySelector(`.toggle-circle[data-key="${p.key}"]`);
+    const qazaInput = document.querySelector(`.qaza-input[data-key="${p.key}"]`);
+    data[p.key] = {
+      prayed: toggle.classList.contains('on'),
+      qaza: parseInt(qazaInput.value)||0
+    };
+  });
+  try{
+    await apiPost('saveRecord', data);
+    await loadAppData();
+    note.textContent = 'Save ho gaya ✅';
+    btn.disabled = false; btn.textContent = 'Aaj Ka Din Save Karein';
+    setTimeout(()=>{ note.textContent=''; }, 2500);
+  } catch(err){
+    note.textContent = 'Save nahi ho saka, dobara koshish karein';
+    note.style.color = 'var(--danger)';
+    btn.disabled = false; btn.textContent = 'Aaj Ka Din Save Karein';
+  }
+}
+
+/* ======================= QAZA TAB ======================= */
+function renderQaza(){
+  const bal = STATE.summary.balance || {};
+  const total = STATE.summary.totalQaza || 0;
+  shell.innerHTML = `
+    <div class="topbar">
+      <div class="brand">
+        <span class="kicker">Baqaya</span>
+        <h1>Qaza Namazain</h1>
+      </div>
+      <div class="gear" id="refreshBtn">↻</div>
+    </div>
+
+    <div class="card qaza-total">
+      <div class="num">${total}</div>
+      <div class="lbl">Total Baqaya Qaza Namazain</div>
+    </div>
+
+    <div class="qaza-grid">
+      ${PRAYERS.map(p=>`
+        <div class="qaza-tile">
+          <div class="num">${bal[p.key] ?? 0}</div>
+          <div class="lbl">${p.label}</div>
+        </div>
+      `).join('')}
+    </div>
+
+    <div class="card" style="margin-top:14px;">
+      <div class="muted" style="line-height:1.6; font-size:12.5px;">
+        Ye ginti aapki shuruati andazan qaza + har us din se banti hai jab koi namaz "Aaj" screen par un-checked chhodi gayi ho, minus jitni qaza aap ne parh li hai. Jab bhi aap "Qaza Parhi" wale khaanay mein number darj karke din save karte hain, ye ginti khud kam ho jati hai.
+      </div>
+    </div>
+  `;
+  document.getElementById('refreshBtn').addEventListener('click', async ()=>{
+    await loadAppData();
+    renderQaza();
+    showToast('Refresh ho gaya');
+  });
+}
+
+/* ======================= HISTORY TAB ======================= */
+async function renderHistory(){
+  shell.innerHTML = `
+    <div class="topbar">
+      <div class="brand">
+        <span class="kicker">Record</span>
+        <h1>History</h1>
+      </div>
+    </div>
+    <div class="card">
+      <div class="date-picker-row">
+        <input type="date" id="histDate" value="${todayStr()}" max="${todayStr()}">
+        <button class="btn" style="width:auto; padding:12px 18px;" id="histGo">Dekhein</button>
+      </div>
+      <div id="histDetail"></div>
+    </div>
+    <div class="card">
+      <h3 style="font-size:16px; margin-bottom:6px;">Pichle Dinon Ka Record</h3>
+      <div id="histList" class="muted">Load ho raha hai...</div>
+    </div>
+  `;
+
+  document.getElementById('histGo').addEventListener('click', async ()=>{
+    const d = document.getElementById('histDate').value;
+    if (!d) return;
+    await showHistDetail(d);
+  });
+  await showHistDetail(todayStr());
+
+  try{
+    const all = await apiGet('getRecords');
+    const recs = (all.records||[]).slice().sort((a,b)=> b.date.localeCompare(a.date)).slice(0,30);
+    const listEl = document.getElementById('histList');
+    if (!recs.length){
+      listEl.innerHTML = 'Abhi koi record nahi hai.';
+      return;
+    }
+    listEl.innerHTML = recs.map(r=>{
+      const prayedCount = PRAYERS.filter(p=>r[p.key].prayed).length;
+      const qazaCount = PRAYERS.reduce((s,p)=>s+(Number(r[p.key].qaza)||0),0);
+      return `
+        <div class="history-day">
+          <div>
+            <div class="d">${formatDateHuman(r.date)}</div>
+            <div class="stats">Qaza parhi: ${qazaCount}</div>
+          </div>
+          <div class="badge">${prayedCount}/5</div>
+        </div>
+      `;
+    }).join('');
+  } catch(err){
+    document.getElementById('histList').innerHTML = 'Record load nahi ho saka.';
+  }
+}
+
+async function showHistDetail(dateStr){
+  const box = document.getElementById('histDetail');
+  box.innerHTML = '<div class="muted" style="padding:10px 0;">Load ho raha hai...</div>';
+  try{
+    const rec = await apiGet('getRecord', {date: dateStr});
+    if (!rec.exists){
+      box.innerHTML = `<div class="muted" style="padding:10px 0;">${formatDateHuman(dateStr)} ka koi record nahi mila.</div>`;
+      return;
+    }
+    box.innerHTML = `
+      <div style="margin-top:6px;">
+        ${PRAYERS.map(p=>`
+          <div class="prayer-row">
+            <button class="toggle-circle ${rec[p.key].prayed?'on':''}" style="pointer-events:none;">${rec[p.key].prayed?'✓':''}</button>
+            <div class="prayer-name">${p.label}</div>
+            <div class="qaza-input-wrap">
+              <label>Qaza Parhi</label>
+              <div style="font-size:15px; font-weight:600; padding:7px 4px;">${rec[p.key].qaza||0}</div>
+            </div>
+          </div>
+        `).join('')}
+      </div>
+    `;
+  } catch(err){
+    box.innerHTML = '<div class="muted">Load nahi ho saka.</div>';
+  }
+}
+
+function formatDateHuman(dateStr){
+  const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  const [y,m,d] = dateStr.split('-').map(Number);
+  return `${d} ${months[m-1]} ${y}`;
+}
+
+/* Boot */
+init();
+</script>
+</body>
+</html>
