@@ -29,6 +29,8 @@
     --muted:#8b96ad;
     --danger:#c1554a;
     --radius:18px;
+    --nav-h:70px;
+    --savebar-h:84px;
   }
   *{box-sizing:border-box; -webkit-tap-highlight-color: transparent;}
   html,body{margin:0;padding:0;height:100%;}
@@ -49,7 +51,7 @@
     max-width:480px;
     margin:0 auto;
     min-height:100vh;
-    padding:env(safe-area-inset-top) 16px calc(84px + env(safe-area-inset-bottom)) 16px;
+    padding:env(safe-area-inset-top) 16px calc(var(--nav-h) + var(--savebar-h) + env(safe-area-inset-bottom)) 16px;
     position:relative;
   }
   h1,h2,h3{font-family:'Amiri',serif; font-weight:700; margin:0;}
@@ -60,11 +62,12 @@
   .brand{display:flex; flex-direction:column; gap:2px;}
   .brand .kicker{font-size:11px; letter-spacing:.14em; text-transform:uppercase; color:var(--gold-soft);}
   .brand h1{font-size:26px; color:var(--ivory);}
+  .brand .greet{font-size:13px; color:var(--muted); margin-top:2px;}
   .gear{
     width:38px;height:38px;border-radius:50%;
     background:var(--panel); border:1px solid var(--border);
     display:flex;align-items:center;justify-content:center; cursor:pointer;
-    color:var(--gold-soft); font-size:18px;
+    color:var(--gold-soft); font-size:18px; flex-shrink:0;
   }
   .card{
     background:var(--panel);
@@ -77,6 +80,8 @@
   .muted{color:var(--muted); font-size:13px;}
   .age-line{font-size:15px; color:var(--ivory); margin-top:4px;}
   .age-line b{color:var(--gold);}
+  .age-warn{font-size:12.5px; color:var(--gold-soft); margin-top:8px; line-height:1.5;}
+  .age-warn a{color:var(--gold); cursor:pointer; text-decoration:underline;}
 
   /* Tasbih beads row (signature element) */
   .beads{display:flex; justify-content:space-between; align-items:center; margin:6px 0 4px 0; padding:0 4px;}
@@ -101,6 +106,13 @@
   }
   .beads-row{position:relative;}
 
+  .prayer-list-scroll{
+    max-height:44vh;
+    overflow-y:auto;
+    -webkit-overflow-scrolling:touch;
+    margin:0 -4px;
+    padding:0 4px;
+  }
   .prayer-row{
     display:flex; align-items:center; gap:12px;
     padding:12px 4px; border-bottom:1px solid var(--border);
@@ -138,8 +150,20 @@
     background:transparent; border:1px solid var(--border-strong); color:var(--ivory);
   }
   .btn.danger{background:var(--danger); color:#fff;}
+  .btn:disabled{opacity:0.6;}
 
   .save-note{text-align:center; font-size:12.5px; color:var(--green-bright); margin-top:8px; min-height:16px;}
+
+  /* Sticky save bar — floats above the bottom nav */
+  .save-bar{
+    position:fixed; left:0; right:0;
+    bottom: calc(var(--nav-h) + env(safe-area-inset-bottom));
+    display:flex; justify-content:center;
+    padding:14px 16px 10px 16px;
+    background:linear-gradient(180deg, transparent, rgba(9,12,22,0.92) 35%, #0a0e1a 78%);
+    z-index:55;
+  }
+  .save-bar-inner{width:100%; max-width:448px;}
 
   /* Qaza tab — redesigned */
   .qaza-hero{
@@ -176,6 +200,32 @@
     transition:width .4s ease;
   }
   .qaza-row-bottom{font-size:11.5px; color:var(--muted); margin-top:6px;}
+
+  /* Times tab */
+  .clock-hero{text-align:center; padding:22px 10px 16px 10px;}
+  .clock-hero .time{font-family:'Amiri',serif; font-size:44px; color:var(--gold); line-height:1;}
+  .clock-hero .place{color:var(--muted); font-size:13px; margin-top:6px;}
+  .time-row{
+    display:flex; align-items:center; gap:12px;
+    padding:14px 4px; border-bottom:1px solid var(--border);
+  }
+  .time-row:last-child{border-bottom:none;}
+  .time-row.active{
+    background:linear-gradient(90deg, rgba(212,175,55,0.1), transparent);
+    border-radius:12px; margin:0 -8px; padding:14px 8px;
+  }
+  .time-icon{
+    width:36px;height:36px;border-radius:10px; background:var(--gold-dim);
+    display:flex;align-items:center;justify-content:center; font-size:17px; flex-shrink:0;
+  }
+  .time-info{flex:1;}
+  .time-info .name{font-size:15.5px; font-weight:600; display:flex; align-items:center; gap:8px;}
+  .now-badge{
+    background:var(--green-bright); color:#08130f; font-size:10px; font-weight:700;
+    padding:2px 8px; border-radius:10px; letter-spacing:.03em;
+  }
+  .time-info .range{font-size:12.5px; color:var(--muted); margin-top:2px;}
+  .time-source{font-size:11.5px; color:var(--muted); line-height:1.6; text-align:center; padding:4px 6px;}
 
   /* Setup screen */
   .setup-hero{text-align:center; padding:36px 10px 20px 10px;}
@@ -243,6 +293,7 @@
     display:flex; justify-content:center;
     padding:10px 16px calc(10px + env(safe-area-inset-bottom)) 16px;
     background:linear-gradient(180deg, transparent, rgba(6,9,17,0.85) 25%, #06090f 100%);
+    z-index:60;
   }
   .nav-inner{
     width:100%; max-width:448px;
@@ -251,10 +302,10 @@
   }
   .nav-btn{
     flex:1; padding:11px 4px; text-align:center; background:none; border:none;
-    color:var(--muted); font-family:'Inter'; font-size:11.5px; cursor:pointer;
+    color:var(--muted); font-family:'Inter'; font-size:11px; cursor:pointer;
     display:flex; flex-direction:column; align-items:center; gap:4px;
   }
-  .nav-btn .ic{font-size:18px;}
+  .nav-btn .ic{font-size:17px;}
   .nav-btn.active{color:var(--gold);}
 
   .hidden{display:none !important;}
@@ -269,10 +320,13 @@
   </div>
 </div>
 
+<div class="save-bar hidden" id="saveBar"></div>
+
 <div class="nav hidden" id="bottomNav">
   <div class="nav-inner">
     <button class="nav-btn active" data-tab="home"><span class="ic">🕌</span>Today</button>
     <button class="nav-btn" data-tab="qaza"><span class="ic">📿</span>Qaza</button>
+    <button class="nav-btn" data-tab="times"><span class="ic">🕰️</span>Times</button>
     <button class="nav-btn" data-tab="history"><span class="ic">📅</span>History</button>
   </div>
 </div>
@@ -291,6 +345,13 @@ const CONFIG = {
 /* Age at which prayer becomes obligatory — fixed at 7 (not user-editable). */
 const FARD_AGE = 7;
 
+/* Prayer-times source: Aladhan API, University of Islamic Sciences Karachi
+   method (method=1), Hanafi Asr timing (school=1) — the standard combination
+   used across Pakistan, for Lahore specifically. */
+const PRAYER_TIMES_CITY = 'Lahore';
+const PRAYER_TIMES_COUNTRY = 'Pakistan';
+const PRAYER_TIMES_TZ = 'Asia/Karachi';
+
 const PRAYERS = [
   {key:'Fajr', label:'Fajr', icon:'🌄'},
   {key:'Dhuhr', label:'Dhuhr', icon:'☀️'},
@@ -301,13 +362,16 @@ const PRAYERS = [
 
 const shell = document.getElementById('shell');
 const bottomNav = document.getElementById('bottomNav');
+const saveBar = document.getElementById('saveBar');
 const toastEl = document.getElementById('toast');
 
 let STATE = {
   profile: null,
   summary: null,
   todayRecord: null,
-  activeTab: 'home'
+  activeTab: 'home',
+  timings: null,
+  clockInterval: null
 };
 
 function todayStr(){
@@ -374,9 +438,21 @@ async function apiPost(action, data){
   return result;
 }
 
-/* ---------------- Age calculation ---------------- */
-function ageFromDOB(dobStr, asOf=new Date()){
-  const dob = new Date(dobStr+'T00:00:00');
+/* ---------------- Age calculation (robust against odd date formats) ---------------- */
+function parseDobFlexible(dobRaw){
+  if (!dobRaw) return null;
+  if (typeof dobRaw === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(dobRaw.trim())){
+    const d = new Date(dobRaw.trim()+'T00:00:00');
+    if (!isNaN(d.getTime())) return d;
+  }
+  const generic = new Date(dobRaw);
+  if (!isNaN(generic.getTime())) return generic;
+  return null;
+}
+
+function ageFromDOB(dobRaw, asOf=new Date()){
+  const dob = parseDobFlexible(dobRaw);
+  if (!dob) return null;
   let years = asOf.getFullYear() - dob.getFullYear();
   let months = asOf.getMonth() - dob.getMonth();
   let days = asOf.getDate() - dob.getDate();
@@ -446,7 +522,9 @@ function renderError(err){
 
 /* ======================= SETUP SCREEN ======================= */
 function renderSetup(prefill){
+  clearClockInterval();
   bottomNav.classList.add('hidden');
+  saveBar.classList.add('hidden');
   const p = prefill || {};
   shell.innerHTML = `
     <div class="setup-hero">
@@ -454,6 +532,10 @@ function renderSetup(prefill){
       <p>Enter your details so we can calculate your age and an estimate of your qaza (missed) prayers.</p>
     </div>
     <div class="card">
+      <div class="field">
+        <label>Your Name</label>
+        <input type="text" id="in_name" value="${p.name||''}" placeholder="e.g. Khizar">
+      </div>
       <div class="field">
         <label>Date of Birth</label>
         <input type="date" id="in_dob" value="${p.dob||''}">
@@ -478,6 +560,7 @@ function renderSetup(prefill){
     const box = document.getElementById('estimateBox');
     if (!dob){ box.innerHTML=''; return; }
     const age = ageFromDOB(dob);
+    if (!age){ box.innerHTML=''; return; }
     const obligatoryYears = Math.max(0, age.decimalYears - FARD_AGE);
     const missedYears = Math.max(0, obligatoryYears - prayed);
     const perPrayer = Math.round(missedYears * 365);
@@ -497,10 +580,13 @@ function renderSetup(prefill){
   updateEstimate();
 
   document.getElementById('btnSaveSetup').addEventListener('click', async ()=>{
+    const name = document.getElementById('in_name').value.trim();
     const dob = document.getElementById('in_dob').value;
+    if (!name){ showToast('Please enter your name'); return; }
     if (!dob){ showToast('Please enter your date of birth'); return; }
-    const prayed = parseFloat(document.getElementById('in_prayed').value)||0;
     const age = ageFromDOB(dob);
+    if (!age){ showToast('That date of birth looks invalid'); return; }
+    const prayed = parseFloat(document.getElementById('in_prayed').value)||0;
     const obligatoryYears = Math.max(0, age.decimalYears - FARD_AGE);
     const missedYears = Math.max(0, obligatoryYears - prayed);
     const perPrayer = Math.round(missedYears * 365);
@@ -511,7 +597,7 @@ function renderSetup(prefill){
     btn.textContent = 'Saving...'; btn.disabled = true;
     try{
       await apiPost('saveProfile', {
-        dob, baligAge: FARD_AGE, yearsPrayed: prayed, init, setupDate: todayStr()
+        name, dob, baligAge: FARD_AGE, yearsPrayed: prayed, init, setupDate: todayStr()
       });
       showToast('Profile saved ✅');
       await bootAfterSetup();
@@ -545,14 +631,23 @@ document.addEventListener('click', (e)=>{
   }
 });
 
+function clearClockInterval(){
+  if (STATE.clockInterval){
+    clearInterval(STATE.clockInterval);
+    STATE.clockInterval = null;
+  }
+}
+
 function renderTab(tab){
   STATE.activeTab = tab;
+  clearClockInterval();
   document.querySelectorAll('.nav-btn').forEach(b=>{
     b.classList.toggle('active', b.dataset.tab === tab);
   });
   if (tab === 'home') renderHome();
-  else if (tab === 'qaza') renderQaza();
-  else if (tab === 'history') renderHistory();
+  else if (tab === 'qaza') { saveBar.classList.add('hidden'); renderQaza(); }
+  else if (tab === 'times') { saveBar.classList.add('hidden'); renderTimes(); }
+  else if (tab === 'history') { saveBar.classList.add('hidden'); renderHistory(); }
 }
 
 /* ======================= HOME TAB ======================= */
@@ -561,19 +656,24 @@ function renderHome(){
   const rec = STATE.todayRecord;
   const doneFlags = {};
   PRAYERS.forEach(p => doneFlags[p.key] = rec ? rec[p.key].prayed : false);
+  const name = STATE.profile.name || '';
 
   shell.innerHTML = `
     <div class="topbar">
       <div class="brand">
         <span class="kicker">Today</span>
         <h1>${formatDateHuman(todayStr())}</h1>
+        ${name ? `<div class="greet">As-salamu alaykum, ${escapeHtml(name)} 👋</div>` : ''}
       </div>
       <div class="gear" id="gearBtn">⚙️</div>
     </div>
 
     <div class="card">
       <div class="muted">Your Age</div>
-      <div class="age-line"><b>${age.years}</b> years, <b>${age.months}</b> months, <b>${age.days}</b> days</div>
+      ${age
+        ? `<div class="age-line"><b>${age.years}</b> years, <b>${age.months}</b> months, <b>${age.days}</b> days</div>`
+        : `<div class="age-line">—</div><div class="age-warn">We couldn't read your date of birth. <a id="fixDobLink">Tap here to re-enter it</a>.</div>`
+      }
     </div>
 
     <div class="card">
@@ -595,9 +695,7 @@ function renderHome(){
         <h3 style="font-size:17px;">Today's Prayers</h3>
         <span class="muted" style="font-size:11.5px;">Prayed / Qaza Count</span>
       </div>
-      <div id="prayerList"></div>
-      <button class="btn" id="btnSaveDay">Save Today</button>
-      <div class="save-note" id="saveNote"></div>
+      <div id="prayerList" class="prayer-list-scroll"></div>
     </div>
   `;
 
@@ -626,11 +724,30 @@ function renderHome(){
 
   document.getElementById('gearBtn').addEventListener('click', ()=>{
     renderSetup({
+      name: STATE.profile.name,
       dob: STATE.profile.dob,
       yearsPrayed: STATE.profile.yearsPrayed
     });
   });
 
+  const fixDobLink = document.getElementById('fixDobLink');
+  if (fixDobLink){
+    fixDobLink.addEventListener('click', ()=>{
+      renderSetup({ name: STATE.profile.name, yearsPrayed: STATE.profile.yearsPrayed });
+    });
+  }
+
+  renderSaveBar();
+}
+
+function renderSaveBar(){
+  saveBar.classList.remove('hidden');
+  saveBar.innerHTML = `
+    <div class="save-bar-inner">
+      <button class="btn" id="btnSaveDay">Save Today</button>
+      <div class="save-note" id="saveNote"></div>
+    </div>
+  `;
   document.getElementById('btnSaveDay').addEventListener('click', saveToday);
 }
 
@@ -653,12 +770,18 @@ async function saveToday(){
     note.style.color = 'var(--green-bright)';
     note.textContent = 'Saved ✅';
     btn.disabled = false; btn.textContent = 'Save Today';
-    setTimeout(()=>{ note.textContent=''; }, 2500);
+    setTimeout(()=>{ if(note) note.textContent=''; }, 2500);
   } catch(err){
     note.style.color = 'var(--danger)';
     note.textContent = err.message || 'Could not save, please try again';
     btn.disabled = false; btn.textContent = 'Save Today';
   }
+}
+
+function escapeHtml(str){
+  const div = document.createElement('div');
+  div.textContent = str;
+  return div.innerHTML;
 }
 
 /* ======================= QAZA TAB (redesigned) ======================= */
@@ -735,6 +858,127 @@ function renderQaza(){
     renderQaza();
     showToast('Refreshed');
   });
+}
+
+/* ======================= TIMES TAB (live Lahore prayer times) ======================= */
+function renderTimes(){
+  shell.innerHTML = `
+    <div class="topbar">
+      <div class="brand">
+        <span class="kicker">Live</span>
+        <h1>Prayer Times</h1>
+      </div>
+      <div class="gear" id="timesRefresh">↻</div>
+    </div>
+    <div class="card" id="timesCard">
+      <div class="loading-wrap" style="padding:30px 10px;">
+        <div class="spinner"></div>
+        <div class="muted">Fetching today's Lahore timings...</div>
+      </div>
+    </div>
+  `;
+  document.getElementById('timesRefresh').addEventListener('click', ()=>loadTimes(true));
+  loadTimes();
+}
+
+function toMinutes(hhmm){
+  if (!hhmm) return null;
+  const clean = hhmm.split(' ')[0].trim();
+  const [h,m] = clean.split(':').map(Number);
+  if (isNaN(h) || isNaN(m)) return null;
+  return h*60+m;
+}
+
+function to12h(hhmm){
+  if (!hhmm) return '--:--';
+  const clean = hhmm.split(' ')[0].trim();
+  let [h,m] = clean.split(':').map(Number);
+  const ampm = h >= 12 ? 'PM' : 'AM';
+  h = h % 12; if (h === 0) h = 12;
+  return `${h}:${String(m).padStart(2,'0')} ${ampm}`;
+}
+
+async function fetchLahoreTimings(){
+  const d = new Date();
+  const dateStr = `${String(d.getDate()).padStart(2,'0')}-${String(d.getMonth()+1).padStart(2,'0')}-${d.getFullYear()}`;
+  const url = `https://api.aladhan.com/v1/timingsByCity/${dateStr}?city=${encodeURIComponent(PRAYER_TIMES_CITY)}&country=${encodeURIComponent(PRAYER_TIMES_COUNTRY)}&method=1&school=1`;
+  const res = await fetch(url);
+  if (!res.ok) throw new Error('Prayer times service is unavailable right now.');
+  const json = await res.json();
+  if (json.code !== 200 || !json.data || !json.data.timings) throw new Error('Could not load prayer times.');
+  return json.data.timings;
+}
+
+async function loadTimes(isManualRefresh){
+  try{
+    const timings = await fetchLahoreTimings();
+    STATE.timings = timings;
+    renderTimesCard();
+    if (isManualRefresh) showToast('Prayer times updated');
+
+    clearClockInterval();
+    STATE.clockInterval = setInterval(()=>{
+      if (STATE.activeTab === 'times') renderTimesCard();
+    }, 30000);
+  } catch(err){
+    document.getElementById('timesCard').innerHTML = `
+      <div class="age-warn" style="text-align:center;">
+        ${err.message || 'Could not load prayer times.'}<br><br>
+        <a id="retryTimesLink">Tap to retry</a>
+      </div>
+    `;
+    const retry = document.getElementById('retryTimesLink');
+    if (retry) retry.addEventListener('click', ()=>loadTimes(true));
+  }
+}
+
+function renderTimesCard(){
+  const t = STATE.timings;
+  if (!t) return;
+
+  const windows = [
+    {key:'Fajr', icon:'🌄', start: t.Fajr, end: t.Sunrise, endLabel:'Sunrise'},
+    {key:'Dhuhr', icon:'☀️', start: t.Dhuhr, end: t.Asr, endLabel:'Asr'},
+    {key:'Asr', icon:'🌤️', start: t.Asr, end: t.Maghrib, endLabel:'Maghrib'},
+    {key:'Maghrib', icon:'🌇', start: t.Maghrib, end: t.Isha, endLabel:'Isha'},
+    {key:'Isha', icon:'🌙', start: t.Isha, end: t.Fajr, endLabel:'Fajr (next day)'}
+  ];
+
+  const nowLahore = new Date(new Date().toLocaleString('en-US', {timeZone: PRAYER_TIMES_TZ}));
+  const nowMin = nowLahore.getHours()*60 + nowLahore.getMinutes();
+  const fajrMin = toMinutes(t.Fajr);
+
+  function isActive(startMin, endMin, key){
+    if (startMin === null || endMin === null) return false;
+    if (key === 'Isha'){
+      return nowMin >= startMin || nowMin < fajrMin;
+    }
+    if (endMin <= startMin) return nowMin >= startMin || nowMin < endMin;
+    return nowMin >= startMin && nowMin < endMin;
+  }
+
+  const clockStr = nowLahore.toLocaleTimeString('en-US', {hour:'numeric', minute:'2-digit'});
+
+  const card = document.getElementById('timesCard');
+  card.innerHTML = `
+    <div class="clock-hero">
+      <div class="time">${clockStr}</div>
+      <div class="place">Lahore, Pakistan · live</div>
+    </div>
+    ${windows.map(w=>{
+      const active = isActive(toMinutes(w.start), toMinutes(w.end), w.key);
+      return `
+        <div class="time-row ${active?'active':''}">
+          <div class="time-icon">${w.icon}</div>
+          <div class="time-info">
+            <div class="name">${w.key} ${active ? '<span class="now-badge">NOW</span>' : ''}</div>
+            <div class="range">Starts ${to12h(w.start)} · Until ${w.endLabel} (${to12h(w.end)})</div>
+          </div>
+        </div>
+      `;
+    }).join('')}
+    <div class="time-source">Source: Aladhan API — University of Islamic Sciences, Karachi calculation method, Hanafi Asr timing.</div>
+  `;
 }
 
 /* ======================= HISTORY TAB ======================= */
