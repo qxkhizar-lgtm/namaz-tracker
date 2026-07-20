@@ -394,7 +394,12 @@ let STATE = {
   todayRecord: null,
   activeTab: 'home',
   timings: null,
-  clockInterval: null
+  clockInterval: null,
+  historyCache: null,
+  historyLastDate: null,
+  historyFilterOn: false,
+  recordCache: {},
+  timesRefs: null
 };
 
 function todayStr(){
@@ -920,7 +925,14 @@ function renderTimes(){
     </div>
   `;
   document.getElementById('timesRefresh').addEventListener('click', ()=>loadTimes(true));
-  loadTimes();
+
+  if (STATE.timings && STATE.timingsDate === todayStr()){
+    buildTimesCard();
+    startClockTicker();
+    loadTimes(false, true); // silent background refresh
+  } else {
+    loadTimes();
+  }
 }
 
 function toMinutes(hhmm){
@@ -951,30 +963,36 @@ async function fetchLahoreTimings(){
   return json.data.timings;
 }
 
-async function loadTimes(isManualRefresh){
+async function loadTimes(isManualRefresh, silent){
   try{
     const timings = await fetchLahoreTimings();
     STATE.timings = timings;
-    renderTimesCard();
+    STATE.timingsDate = todayStr();
+    if (STATE.activeTab === 'times'){
+      buildTimesCard();
+      startClockTicker();
+    }
     if (isManualRefresh) showToast('Prayer times updated');
-
-    clearClockInterval();
-    STATE.clockInterval = setInterval(()=>{
-      if (STATE.activeTab === 'times') renderTimesCard();
-    }, 30000);
   } catch(err){
-    document.getElementById('timesCard').innerHTML = `
-      <div class="age-warn" style="text-align:center;">
-        ${err.message || 'Could not load prayer times.'}<br><br>
-        <a id="retryTimesLink">Tap to retry</a>
-      </div>
-    `;
-    const retry = document.getElementById('retryTimesLink');
-    if (retry) retry.addEventListener('click', ()=>loadTimes(true));
+    if (silent) return; // background refresh failed quietly — keep showing cached data
+    const card = document.getElementById('timesCard');
+    if (card){
+      card.innerHTML = `
+        <div class="age-warn" style="text-align:center;">
+          ${err.message || 'Could not load prayer times.'}<br><br>
+          <a id="retryTimesLink">Tap to retry</a>
+        </div>
+      `;
+      const retry = document.getElementById('retryTimesLink');
+      if (retry) retry.addEventListener('click', ()=>loadTimes(true));
+    }
   }
 }
 
-function renderTimesCard(){
+/* Builds the Times card DOM once, then startClockTicker() updates just the
+   clock text + active-prayer highlight every second — no full rebuild,
+   so it feels genuinely real-time with no refresh needed. */
+function buildTimesCard(){
   const t = STATE.timings;
   if (!t) return;
 
@@ -986,45 +1004,69 @@ function renderTimesCard(){
     {key:'Isha', icon:'🌙', start: t.Isha, end: t.Fajr, endLabel:'Fajr (next day)'}
   ];
 
-  const nowLahore = new Date(new Date().toLocaleString('en-US', {timeZone: PRAYER_TIMES_TZ}));
-  const nowMin = nowLahore.getHours()*60 + nowLahore.getMinutes();
-  const fajrMin = toMinutes(t.Fajr);
-
-  function isActive(startMin, endMin, key){
-    if (startMin === null || endMin === null) return false;
-    if (key === 'Isha'){
-      return nowMin >= startMin || nowMin < fajrMin;
-    }
-    if (endMin <= startMin) return nowMin >= startMin || nowMin < endMin;
-    return nowMin >= startMin && nowMin < endMin;
-  }
-
-  const clockStr = nowLahore.toLocaleTimeString('en-US', {hour:'numeric', minute:'2-digit'});
-
   const card = document.getElementById('timesCard');
+  if (!card) return;
   card.innerHTML = `
     <div class="clock-hero">
-      <div class="time">${clockStr}</div>
+      <div class="time" id="liveClock">--:--</div>
       <div class="place">Lahore, Pakistan · live</div>
     </div>
-    ${windows.map(w=>{
-      const active = isActive(toMinutes(w.start), toMinutes(w.end), w.key);
-      return `
-        <div class="time-row ${active?'active':''}">
-          <div class="time-icon">${w.icon}</div>
-          <div class="time-info">
-            <div class="name">${w.key} ${active ? '<span class="now-badge">NOW</span>' : ''}</div>
-            <div class="range">Starts ${to12h(w.start)} · Until ${w.endLabel} (${to12h(w.end)})</div>
-          </div>
+    ${windows.map(w=>`
+      <div class="time-row" data-key="${w.key}">
+        <div class="time-icon">${w.icon}</div>
+        <div class="time-info">
+          <div class="name">${w.key} <span class="now-badge" style="display:none;">NOW</span></div>
+          <div class="range">Starts ${to12h(w.start)} · Until ${w.endLabel} (${to12h(w.end)})</div>
         </div>
-      `;
-    }).join('')}
+      </div>
+    `).join('')}
     <div class="time-source">Source: Aladhan API — University of Islamic Sciences, Karachi calculation method, Hanafi Asr timing.</div>
   `;
+
+  STATE.timesRefs = {
+    clockEl: document.getElementById('liveClock'),
+    windows: windows.map(w => ({
+      key: w.key,
+      startMin: toMinutes(w.start),
+      endMin: toMinutes(w.end),
+      rowEl: card.querySelector(`.time-row[data-key="${w.key}"]`),
+      badgeEl: card.querySelector(`.time-row[data-key="${w.key}"] .now-badge`)
+    })),
+    fajrMin: toMinutes(t.Fajr)
+  };
+
+  tickClock();
+}
+
+function startClockTicker(){
+  clearClockInterval();
+  STATE.clockInterval = setInterval(()=>{
+    if (STATE.activeTab === 'times') tickClock();
+  }, 1000);
+}
+
+function tickClock(){
+  const refs = STATE.timesRefs;
+  if (!refs || !refs.clockEl) return;
+  const nowLahore = new Date(new Date().toLocaleString('en-US', {timeZone: PRAYER_TIMES_TZ}));
+  const nowMin = nowLahore.getHours()*60 + nowLahore.getMinutes();
+  refs.clockEl.textContent = nowLahore.toLocaleTimeString('en-US', {hour:'numeric', minute:'2-digit', second:'2-digit'});
+
+  refs.windows.forEach(w=>{
+    let active = false;
+    if (w.startMin !== null && w.endMin !== null){
+      if (w.key === 'Isha') active = nowMin >= w.startMin || nowMin < refs.fajrMin;
+      else if (w.endMin <= w.startMin) active = nowMin >= w.startMin || nowMin < w.endMin;
+      else active = nowMin >= w.startMin && nowMin < w.endMin;
+    }
+    if (w.rowEl) w.rowEl.classList.toggle('active', active);
+    if (w.badgeEl) w.badgeEl.style.display = active ? 'inline-block' : 'none';
+  });
 }
 
 /* ======================= HISTORY TAB ======================= */
 async function renderHistory(){
+  const viewDate = STATE.historyLastDate || todayStr();
   shell.innerHTML = `
     <div class="topbar">
       <div class="brand">
@@ -1034,7 +1076,7 @@ async function renderHistory(){
     </div>
     <div class="card">
       <div class="date-picker-row">
-        <input type="date" id="histDate" value="${todayStr()}" max="${todayStr()}">
+        <input type="date" id="histDate" value="${viewDate}" max="${todayStr()}">
         <button class="btn" style="width:auto; padding:12px 18px;" id="histGo">View</button>
       </div>
       <div id="histDetail"></div>
@@ -1043,31 +1085,39 @@ async function renderHistory(){
       <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
         <h3 style="font-size:16px;">Recent Days</h3>
         <label class="filter-toggle">
-          <input type="checkbox" id="goalFilter">
+          <input type="checkbox" id="goalFilter" ${STATE.historyFilterOn ? 'checked' : ''}>
           <span>🎯 Goal days only</span>
         </label>
       </div>
-      <div id="histList" class="muted">Loading...</div>
+      <div id="histList" class="muted">${STATE.historyCache ? '' : 'Loading...'}</div>
     </div>
   `;
 
   document.getElementById('histGo').addEventListener('click', async ()=>{
     const d = document.getElementById('histDate').value;
     if (!d) return;
+    STATE.historyLastDate = d;
     await showHistDetail(d);
   });
-  await showHistDetail(todayStr());
+  document.getElementById('goalFilter').addEventListener('change', (e)=>{
+    STATE.historyFilterOn = e.target.checked;
+    renderHistList(STATE.historyCache || [], STATE.historyFilterOn);
+  });
 
+  // Render instantly from cache (no reload flicker on tab revisit)...
+  if (STATE.historyCache) renderHistList(STATE.historyCache, STATE.historyFilterOn);
+  await showHistDetail(viewDate);
+
+  // ...then quietly refresh in the background so the cache stays current.
   try{
     const all = await apiGet('getRecords');
-    const recs = (all.records||[]).slice().sort((a,b)=> b.date.localeCompare(a.date)).slice(0,30);
+    const recs = (all.records||[]).slice().sort((a,b)=> String(b.date).localeCompare(String(a.date))).slice(0,30);
     STATE.historyCache = recs;
-    renderHistList(recs, false);
-    document.getElementById('goalFilter').addEventListener('change', (e)=>{
-      renderHistList(STATE.historyCache, e.target.checked);
-    });
+    if (STATE.activeTab === 'history') renderHistList(recs, STATE.historyFilterOn);
   } catch(err){
-    document.getElementById('histList').innerHTML = 'Could not load records.';
+    if (!STATE.historyCache){
+      document.getElementById('histList').innerHTML = 'Could not load records.';
+    }
   }
 }
 
@@ -1103,9 +1153,10 @@ function renderHistList(recs, onlyGoal){
 
 async function showHistDetail(dateStr){
   const box = document.getElementById('histDetail');
-  box.innerHTML = '<div class="muted" style="padding:10px 0;">Loading...</div>';
-  try{
-    const rec = await apiGet('getRecord', {date: dateStr});
+  const cached = STATE.recordCache[dateStr];
+
+  const renderDetail = (rec)=>{
+    if (!box) return;
     if (!rec.exists){
       box.innerHTML = `<div class="muted" style="padding:10px 0;">No record found for ${formatDateHuman(dateStr)}.</div>`;
       return;
@@ -1129,14 +1180,31 @@ async function showHistDetail(dateStr){
         `).join('')}
       </div>
     `;
+  };
+
+  if (cached){
+    renderDetail(cached);
+  } else {
+    box.innerHTML = '<div class="muted" style="padding:10px 0;">Loading...</div>';
+  }
+
+  try{
+    const rec = await apiGet('getRecord', {date: dateStr});
+    STATE.recordCache[dateStr] = rec;
+    if (STATE.activeTab === 'history') renderDetail(rec);
   } catch(err){
-    box.innerHTML = '<div class="muted">Could not load this record.</div>';
+    if (!cached && box) box.innerHTML = '<div class="muted">Could not load this record.</div>';
   }
 }
 
 function formatDateHuman(dateStr){
   const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-  const [y,m,d] = dateStr.split('-').map(Number);
+  if (!dateStr) return 'Unknown date';
+  const parts = String(dateStr).split('-').map(Number);
+  const [y,m,d] = parts;
+  if (parts.length !== 3 || [y,m,d].some(n => isNaN(n))){
+    return String(dateStr); // fall back to raw value rather than showing NaN
+  }
   return `${d} ${months[m-1]} ${y}`;
 }
 
