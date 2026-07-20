@@ -1020,7 +1020,7 @@ function buildTimesCard(){
         </div>
       </div>
     `).join('')}
-    <div class="time-source">Source: Aladhan API — University of Islamic Sciences, Karachi calculation method, Hanafi Asr timing.</div>
+    <div class="time-source">Source: Aladhan API — University of Islamic Sciences, Karachi method (Sunni · Hanafi Asr timing), the calculation used across Pakistan's mosques.</div>
   `;
 
   STATE.timesRefs = {
@@ -1079,6 +1079,7 @@ async function renderHistory(){
         <input type="date" id="histDate" value="${viewDate}" max="${todayStr()}">
         <button class="btn" style="width:auto; padding:12px 18px;" id="histGo">View</button>
       </div>
+      <div class="muted" id="histDatePreview" style="margin:-4px 0 12px 2px;">${formatDateHuman(viewDate)}</div>
       <div id="histDetail"></div>
     </div>
     <div class="card">
@@ -1093,6 +1094,10 @@ async function renderHistory(){
     </div>
   `;
 
+  document.getElementById('histDate').addEventListener('input', (e)=>{
+    const preview = document.getElementById('histDatePreview');
+    if (preview) preview.textContent = formatDateHuman(e.target.value);
+  });
   document.getElementById('histGo').addEventListener('click', async ()=>{
     const d = document.getElementById('histDate').value;
     if (!d) return;
@@ -1111,7 +1116,7 @@ async function renderHistory(){
   // ...then quietly refresh in the background so the cache stays current.
   try{
     const all = await apiGet('getRecords');
-    const recs = (all.records||[]).slice().sort((a,b)=> String(b.date).localeCompare(String(a.date))).slice(0,30);
+    const recs = (all.records||[]).slice().sort((a,b)=> (normalizeDateStr(b.date)||'').localeCompare(normalizeDateStr(a.date)||'')).slice(0,30);
     STATE.historyCache = recs;
     if (STATE.activeTab === 'history') renderHistList(recs, STATE.historyFilterOn);
   } catch(err){
@@ -1197,15 +1202,26 @@ async function showHistDetail(dateStr){
   }
 }
 
+function normalizeDateStr(raw){
+  if (!raw) return null;
+  const str = String(raw).trim();
+  if (/^\d{4}-\d{2}-\d{2}$/.test(str)) return str;
+  // Handles ISO datetime values like "2026-07-19T19:00:00.000Z" from legacy rows —
+  // convert to the correct Pakistan-local calendar date rather than just chopping the string.
+  const d = new Date(str);
+  if (!isNaN(d.getTime())){
+    return d.toLocaleDateString('en-CA', {timeZone: PRAYER_TIMES_TZ}); // en-CA => yyyy-mm-dd
+  }
+  return null;
+}
+
 function formatDateHuman(dateStr){
   const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-  if (!dateStr) return 'Unknown date';
-  const parts = String(dateStr).split('-').map(Number);
-  const [y,m,d] = parts;
-  if (parts.length !== 3 || [y,m,d].some(n => isNaN(n))){
-    return String(dateStr); // fall back to raw value rather than showing NaN
-  }
-  return `${d} ${months[m-1]} ${y}`;
+  const clean = normalizeDateStr(dateStr);
+  if (!clean) return dateStr ? String(dateStr) : 'Unknown date';
+  const [y,m,d] = clean.split('-').map(Number);
+  if ([y,m,d].some(n => isNaN(n))) return String(dateStr);
+  return `${d} ${months[m-1]} ${y}`; // Pakistani/international day-month-year order
 }
 
 /* Boot */
