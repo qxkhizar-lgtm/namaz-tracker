@@ -181,6 +181,15 @@
     color:var(--gold); font-size:12.5px; font-weight:600; padding:6px 14px; border-radius:20px;
   }
 
+  .goal-status{
+    text-align:center; margin-top:14px; font-size:12.5px; font-weight:600;
+    color:var(--muted); background:rgba(255,255,255,0.04); border:1px solid var(--border);
+    padding:7px 14px; border-radius:20px; transition:all .25s ease;
+  }
+  .goal-status.complete{
+    color:var(--gold); background:var(--gold-dim); border-color:var(--border-strong);
+  }
+
   .qaza-row{padding:14px 2px; border-bottom:1px solid var(--border);}
   .qaza-row:last-child{border-bottom:none;}
   .qaza-row-top{display:flex; justify-content:space-between; align-items:baseline; margin-bottom:8px;}
@@ -264,6 +273,20 @@
   }
   .date-picker-row{display:flex; gap:10px; margin-bottom:14px;}
   .date-picker-row input{flex:1;}
+  .history-day .badge.goal{
+    background:var(--gold-dim); color:var(--gold); border:1px solid var(--border-strong);
+  }
+  .filter-toggle{
+    display:flex; align-items:center; gap:7px; font-size:12px; color:var(--muted); cursor:pointer;
+    user-select:none;
+  }
+  .filter-toggle input{width:16px; height:16px; accent-color:var(--gold);}
+  .filter-toggle input:checked + span{color:var(--gold);}
+  .goal-banner{
+    display:flex; align-items:center; gap:8px; background:var(--gold-dim); color:var(--gold);
+    border:1px solid var(--border-strong); border-radius:12px; padding:10px 14px;
+    font-size:13px; font-weight:600; margin-bottom:10px;
+  }
 
   .toast{
     position:fixed; top:14px; left:50%; transform:translateX(-50%);
@@ -682,12 +705,13 @@ function renderHome(){
         <div class="beads">
           ${PRAYERS.map(p=>`
             <div class="bead-wrap">
-              <div class="bead ${doneFlags[p.key]?'done':''}"></div>
+              <div class="bead ${doneFlags[p.key]?'done':''}" data-key="${p.key}"></div>
               <div class="bead-label">${p.label}</div>
             </div>
           `).join('')}
         </div>
       </div>
+      <div class="goal-status" id="goalStatus"></div>
     </div>
 
     <div class="card">
@@ -719,8 +743,13 @@ function renderHome(){
     btn.addEventListener('click', ()=>{
       btn.classList.toggle('on');
       btn.textContent = btn.classList.contains('on') ? '✓' : '';
+      const key = btn.dataset.key;
+      const bead = document.querySelector(`.bead[data-key="${key}"]`);
+      if (bead) bead.classList.toggle('done', btn.classList.contains('on'));
+      updateGoalStatus();
     });
   });
+  updateGoalStatus();
 
   document.getElementById('gearBtn').addEventListener('click', ()=>{
     renderSetup({
@@ -738,6 +767,19 @@ function renderHome(){
   }
 
   renderSaveBar();
+}
+
+function updateGoalStatus(){
+  const el = document.getElementById('goalStatus');
+  if (!el) return;
+  const onCount = document.querySelectorAll('.toggle-circle.on').length;
+  if (onCount >= 5){
+    el.textContent = '🎯 Goal Complete — all 5 prayers today!';
+    el.classList.add('complete');
+  } else {
+    el.textContent = `${onCount}/5 prayers marked today`;
+    el.classList.remove('complete');
+  }
 }
 
 function renderSaveBar(){
@@ -998,7 +1040,13 @@ async function renderHistory(){
       <div id="histDetail"></div>
     </div>
     <div class="card">
-      <h3 style="font-size:16px; margin-bottom:6px;">Recent Days</h3>
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+        <h3 style="font-size:16px;">Recent Days</h3>
+        <label class="filter-toggle">
+          <input type="checkbox" id="goalFilter">
+          <span>🎯 Goal days only</span>
+        </label>
+      </div>
       <div id="histList" class="muted">Loading...</div>
     </div>
   `;
@@ -1013,27 +1061,44 @@ async function renderHistory(){
   try{
     const all = await apiGet('getRecords');
     const recs = (all.records||[]).slice().sort((a,b)=> b.date.localeCompare(a.date)).slice(0,30);
-    const listEl = document.getElementById('histList');
-    if (!recs.length){
-      listEl.innerHTML = 'No records yet.';
-      return;
-    }
-    listEl.innerHTML = recs.map(r=>{
-      const prayedCount = PRAYERS.filter(p=>r[p.key].prayed).length;
-      const qazaCount = PRAYERS.reduce((s,p)=>s+(Number(r[p.key].qaza)||0),0);
-      return `
-        <div class="history-day">
-          <div>
-            <div class="d">${formatDateHuman(r.date)}</div>
-            <div class="stats">Qaza prayed: ${qazaCount}</div>
-          </div>
-          <div class="badge">${prayedCount}/5</div>
-        </div>
-      `;
-    }).join('');
+    STATE.historyCache = recs;
+    renderHistList(recs, false);
+    document.getElementById('goalFilter').addEventListener('change', (e)=>{
+      renderHistList(STATE.historyCache, e.target.checked);
+    });
   } catch(err){
     document.getElementById('histList').innerHTML = 'Could not load records.';
   }
+}
+
+function renderHistList(recs, onlyGoal){
+  const listEl = document.getElementById('histList');
+  if (!listEl) return;
+  if (!recs.length){
+    listEl.innerHTML = 'No records yet.';
+    return;
+  }
+  const rows = recs.map(r=>{
+    const prayedCount = PRAYERS.filter(p=>r[p.key].prayed).length;
+    const qazaCount = PRAYERS.reduce((s,p)=>s+(Number(r[p.key].qaza)||0),0);
+    const goalComplete = prayedCount === 5;
+    return {r, prayedCount, qazaCount, goalComplete};
+  }).filter(x => !onlyGoal || x.goalComplete);
+
+  if (!rows.length){
+    listEl.innerHTML = 'No days match — keep going, your first 5/5 day will show up here 🎯';
+    return;
+  }
+
+  listEl.innerHTML = rows.map(({r, prayedCount, qazaCount, goalComplete})=>`
+    <div class="history-day">
+      <div>
+        <div class="d">${formatDateHuman(r.date)}${goalComplete ? ' 🎯' : ''}</div>
+        <div class="stats">Qaza prayed: ${qazaCount}</div>
+      </div>
+      <div class="badge ${goalComplete ? 'goal' : ''}">${prayedCount}/5</div>
+    </div>
+  `).join('');
 }
 
 async function showHistDetail(dateStr){
@@ -1045,7 +1110,12 @@ async function showHistDetail(dateStr){
       box.innerHTML = `<div class="muted" style="padding:10px 0;">No record found for ${formatDateHuman(dateStr)}.</div>`;
       return;
     }
+    const prayedCount = PRAYERS.filter(p=>rec[p.key].prayed).length;
+    const goalBanner = prayedCount === 5
+      ? `<div class="goal-banner">🎯 Goal Completed — all 5 prayers on this day!</div>`
+      : '';
     box.innerHTML = `
+      ${goalBanner}
       <div style="margin-top:6px;">
         ${PRAYERS.map(p=>`
           <div class="prayer-row">
