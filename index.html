@@ -365,8 +365,8 @@ const CONFIG = {
 };
 /* ======================================================= */
 
-/* Age at which prayer becomes obligatory — fixed at 7 (not user-editable). */
-const FARD_AGE = 7;
+/* Age at which prayer becomes obligatory — fixed at 12 (not user-editable). */
+const FARD_AGE = 12;
 
 /* Prayer-times source: Aladhan API, University of Islamic Sciences Karachi
    method (method=1), Hanafi Asr timing (school=1) — the standard combination
@@ -413,7 +413,13 @@ function showToast(msg){
   setTimeout(()=>toastEl.classList.remove('show'), 2200);
 }
 
-/* ---------------- API layer (JSONP — avoids CORS issues entirely) ---------------- */
+/* ---------------- API layer ----------------
+   Tries a direct fetch() first (fastest, works on most networks). If that's
+   blocked — e.g. by Data Saver / a VPN / Private DNS filtering — it
+   automatically falls back to a JSONP script-tag request, which uses a
+   completely different loading mechanism and often gets through when
+   fetch() is blocked (or vice versa). This makes the app resilient across
+   very different mobile network setups without the user changing anything. */
 function jsonp(url){
   return new Promise((resolve, reject)=>{
     const cbName = 'cb_' + Math.random().toString(36).slice(2) + Date.now();
@@ -437,15 +443,15 @@ function jsonp(url){
       if (settled) return;
       settled = true;
       cleanup();
-      reject(new Error('Could not reach the server. Check your internet connection and the Apps Script URL in CONFIG.SCRIPT_URL.'));
+      reject(new Error('script-load-failed'));
     };
 
     const timer = setTimeout(()=>{
       if (settled) return;
       settled = true;
       cleanup();
-      reject(new Error('The server took too long to respond. Please try again.'));
-    }, 15000);
+      reject(new Error('script-load-timeout'));
+    }, 12000);
 
     const sep = url.indexOf('?') === -1 ? '?' : '&';
     script.src = url + sep + 'callback=' + cbName;
@@ -453,15 +459,42 @@ function jsonp(url){
   });
 }
 
+function fetchWithTimeout(url, ms){
+  const controller = new AbortController();
+  const timer = setTimeout(()=>controller.abort(), ms);
+  return fetch(url, {signal: controller.signal, cache:'no-store'})
+    .then(res=>{
+      clearTimeout(timer);
+      if (!res.ok) throw new Error('http-' + res.status);
+      return res.json();
+    })
+    .catch(err=>{
+      clearTimeout(timer);
+      throw err;
+    });
+}
+
+async function apiRequest(url){
+  try{
+    return await fetchWithTimeout(url, 8000);
+  } catch(fetchErr){
+    try{
+      return await jsonp(url);
+    } catch(jsonpErr){
+      throw new Error('Could not reach the server. Try turning off Data Saver / any VPN or Private DNS app, then reload — or switch to WiFi.');
+    }
+  }
+}
+
 async function apiGet(action, params={}){
   const usp = new URLSearchParams({action, ...params});
-  const result = await jsonp(`${CONFIG.SCRIPT_URL}?${usp.toString()}`);
+  const result = await apiRequest(`${CONFIG.SCRIPT_URL}?${usp.toString()}`);
   if (result && result.error) throw new Error(result.error);
   return result;
 }
 async function apiPost(action, data){
   const usp = new URLSearchParams({action, payload: JSON.stringify(data)});
-  const result = await jsonp(`${CONFIG.SCRIPT_URL}?${usp.toString()}`);
+  const result = await apiRequest(`${CONFIG.SCRIPT_URL}?${usp.toString()}`);
   if (result && result.error) throw new Error(result.error);
   return result;
 }
@@ -569,7 +602,7 @@ function renderSetup(prefill){
         <input type="date" id="in_dob" value="${p.dob||''}">
       </div>
       <div class="fixed-note">
-        ⚓ Prayers are counted as obligatory starting at <b>age 7</b>.
+        ⚓ Prayers are counted as obligatory starting at <b>age 12</b>.
       </div>
       <div class="field">
         <label>Roughly How Many Years You've Prayed Regularly</label>
